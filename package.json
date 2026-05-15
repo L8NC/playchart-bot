@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "postinstall": "npm run build",
     "start": "node dist/index.js",
     "register": "tsx scripts/register-commands.ts",
     "lint": "tsc --noEmit"
