@@ -48,8 +48,69 @@ async function request<T>(
 }
 
 // ────────────────────────────────────────────────────────────
+// Response types. Mirror the shapes in the API spec doc.
+// Keep these tight — if BP changes the shape, change it here too.
+// ────────────────────────────────────────────────────────────
+
+export type ChartGame = {
+  rank: number
+  gameId: number
+  name: string
+  slug: string
+  coverUrl: string | null
+  rating: number
+  releaseYear?: number
+}
+
+export type ChartResponse = {
+  user: {
+    username: string
+    displayName: string | null
+    avatarUrl: string | null
+    totalVotes: number
+  }
+  chart: ChartGame[]
+}
+
+export type GameRef = {
+  gameId: number
+  name: string
+  slug: string
+  releaseYear?: number
+  coverUrl?: string | null
+}
+
+export type VersusResponse = {
+  gameA: GameRef
+  gameB: GameRef
+  totalMatchups: number
+  gameAWins: number
+  gameBWins: number
+  gameAWinRate: number
+}
+
+export type LeaderboardEntry = {
+  rank: number
+  gameId: number
+  name: string
+  slug: string
+  coverUrl: string | null
+  globalRating: number
+  totalVotes: number
+}
+
+export type LeaderboardResponse = {
+  scope: { genre?: string }
+  leaderboard: LeaderboardEntry[]
+}
+
+export type MatchupResponse = {
+  gameA: GameRef
+  gameB: GameRef
+}
+
+// ────────────────────────────────────────────────────────────
 // Endpoint methods. Order matches the spec.
-// Return types are placeholders — tighten when commands wire in.
 // ────────────────────────────────────────────────────────────
 
 export const api = {
@@ -66,28 +127,28 @@ export const api = {
   },
 
   chartByDiscordId(discordId: string, limit = 5) {
-    return request<unknown>(
+    return request<ChartResponse>(
       'GET',
       `/users/by-discord/${discordId}/chart?limit=${limit}`,
     )
   },
 
   chartByUsername(username: string, limit = 5) {
-    return request<unknown>(
+    return request<ChartResponse>(
       'GET',
       `/users/by-username/${encodeURIComponent(username)}/chart?limit=${limit}`,
     )
   },
 
   searchGames(query: string, limit = 10) {
-    return request<unknown>(
+    return request<{ results: GameRef[] }>(
       'GET',
       `/games/search?q=${encodeURIComponent(query)}&limit=${limit}`,
     )
   },
 
   versus(gameAId: number, gameBId: number) {
-    return request<unknown>(
+    return request<VersusResponse>(
       'GET',
       `/games/versus?a=${gameAId}&b=${gameBId}`,
     )
@@ -97,10 +158,13 @@ export const api = {
     const params = new URLSearchParams()
     if (opts.limit) params.set('limit', String(opts.limit))
     if (opts.genre) params.set('genre', opts.genre)
-    return request<unknown>('GET', `/leaderboard?${params.toString()}`)
+    return request<LeaderboardResponse>(
+      'GET',
+      `/leaderboard?${params.toString()}`,
+    )
   },
 
   randomMatchup() {
-    return request<unknown>('GET', '/matchup/random')
+    return request<MatchupResponse>('GET', '/matchup/random')
   },
 }
