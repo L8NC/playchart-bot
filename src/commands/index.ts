@@ -2,6 +2,7 @@
 // To add a new command:
 //   1. Create src/commands/<name>.ts exporting a Command object
 //   2. Import it here and add to the `commands` array
+//   3. Run `npm run register` to push the new command def to Discord
 // Explicit list, no autoloading magic. Easy to reason about.
 
 import type {
@@ -12,6 +13,7 @@ import type {
 } from 'discord.js'
 
 import { ping } from './ping.js'
+import { link } from './link.js'
 
 export type Command = {
   data:
@@ -21,7 +23,7 @@ export type Command = {
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>
 }
 
-export const commands: Command[] = [ping]
+export const commands: Command[] = [ping, link]
 
 export const commandByName = new Map<string, Command>(
   commands.map((c) => [c.data.name, c]),
