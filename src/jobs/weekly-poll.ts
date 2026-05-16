@@ -4,13 +4,10 @@
 // Lifecycle:
 //   1. Fetch two games from /api/bot/matchup/random
 //   2. Post a 24h Discord poll in #versus with the two games
-//   3. When the poll ends (Discord emits MessagePollVoteAdd
-//      events, plus a final "ended" state we read on demand),
-//      we post a follow-up message announcing the winner.
-//
-// The second half (result follow-up) lives in events/messagePollVoteRemove.ts
-// — Discord doesn't have a clean "poll ended" event; we listen for
-// vote events on poll messages and check `poll.resultsFinalized`.
+//   3. When the poll ends, post a follow-up message with the result
+//      (the second half is wired in events/messagePollVoteAdd.ts —
+//      Discord doesn't emit a clean "ended" event, so we watch
+//      vote events and check `poll.resultsFinalized`).
 
 import {
   Client,
@@ -108,7 +105,7 @@ function composeIntro(a: GameRef, b: GameRef): string {
 }
 
 function pollQuestion(a: GameRef, b: GameRef): string {
-  // Discord pollQuestion max is 300 chars; we'll never exceed.
+  // Discord poll question max is 300 chars; we'll never exceed.
   return `${a.name} or ${b.name}?`
 }
 
@@ -123,6 +120,15 @@ function pollQuestion(a: GameRef, b: GameRef): string {
 export async function postPollResult(message: Message): Promise<void> {
   if (!message.poll) return
 
+  // The poll result follow-up posts in the same channel as the
+  // original. Narrow the channel type so .send() is callable —
+  // Discord's union includes a few channel types that don't.
+  const channel = message.channel
+  if (!channel.isSendable()) {
+    log.warn(`poll result — channel ${channel.id} is not sendable`)
+    return
+  }
+
   const answers = [...message.poll.answers.values()]
   if (answers.length !== 2) {
     // Not one of our matchup polls — skip.
@@ -131,7 +137,7 @@ export async function postPollResult(message: Message): Promise<void> {
 
   const totalVotes = answers.reduce((s, a) => s + a.voteCount, 0)
   if (totalVotes === 0) {
-    await message.channel.send({
+    await channel.send({
       content: [
         `// MATCHUP CLOSED // no votes cast.`,
         `Both sides take the L.`,
@@ -171,7 +177,7 @@ export async function postPollResult(message: Message): Promise<void> {
     ].join('\n')
   }
 
-  await message.channel.send({ content: body })
+  await channel.send({ content: body })
   log.info(
     `poll result posted // ${winner.text} ${winPct}% vs ${loser.text} ${losePct}% // ${totalVotes} votes`,
   )
