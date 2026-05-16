@@ -14,6 +14,7 @@ import type {
 
 import { ping } from './ping.js'
 import { link } from './link.js'
+import { chart } from './chart.js'
 
 export type Command = {
   data:
@@ -23,7 +24,7 @@ export type Command = {
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>
 }
 
-export const commands: Command[] = [ping, link]
+export const commands: Command[] = [ping, link, chart]
 
 export const commandByName = new Map<string, Command>(
   commands.map((c) => [c.data.name, c]),
