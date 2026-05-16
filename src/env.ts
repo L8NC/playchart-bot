@@ -25,6 +25,10 @@ export const env = {
   discordGuildId: optional('DISCORD_GUILD_ID', ''),
   discordVersusChannelId: required('DISCORD_VERSUS_CHANNEL_ID'),
 
+  // Discord user ID of the bot admin (you). Restricts /poll-now to
+  // a single person so nobody else can spam the weekly poll.
+  discordAdminUserId: optional('DISCORD_ADMIN_USER_ID', ''),
+
   playchartApiBase: required('PLAYCHART_API_BASE'),
   playchartApiKey: required('PLAYCHART_API_KEY'),
 
