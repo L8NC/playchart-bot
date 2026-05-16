@@ -7,6 +7,7 @@
 
 import type {
   ChatInputCommandInteraction,
+  AutocompleteInteraction,
   SlashCommandBuilder,
   SlashCommandOptionsOnlyBuilder,
   SlashCommandSubcommandsOnlyBuilder,
@@ -16,6 +17,8 @@ import { ping } from './ping.js'
 import { link } from './link.js'
 import { chart } from './chart.js'
 import { pollNow } from './poll-now.js'
+import { versus } from './versus.js'
+import { leaderboard } from './leaderboard.js'
 
 export type Command = {
   data:
@@ -23,9 +26,18 @@ export type Command = {
     | SlashCommandOptionsOnlyBuilder
     | SlashCommandSubcommandsOnlyBuilder
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>
+  // Optional — only present on commands with autocomplete options.
+  autocomplete?: (interaction: AutocompleteInteraction) => Promise<void>
 }
 
-export const commands: Command[] = [ping, link, chart, pollNow]
+export const commands: Command[] = [
+  ping,
+  link,
+  chart,
+  pollNow,
+  versus,
+  leaderboard,
+]
 
 export const commandByName = new Map<string, Command>(
   commands.map((c) => [c.data.name, c]),
