@@ -27,7 +27,7 @@ import { log } from '../lib/log.js'
 let lastPostedAt: number | null = null
 const MIN_GAP_MS = 12 * 60 * 60 * 1000 // 12 hours
 
-const POLL_DURATION_HOURS = 24
+const POLL_DURATION_HOURS = 96
 
 /**
  * Run the weekly poll. Called by node-cron on schedule, or by
@@ -100,7 +100,7 @@ function composeIntro(a: GameRef, b: GameRef): string {
     ``,
     `**${a.name}** vs **${b.name}**`,
     ``,
-    `24 hours. One vote each. Defend in the replies.`,
+    `Two games. One vote. Defend your choice in the replies.`,
   ].join('\n')
 }
 
