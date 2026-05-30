@@ -19,6 +19,7 @@ import { chart } from './chart.js'
 import { pollNow } from './poll-now.js'
 import { versus } from './versus.js'
 import { leaderboard } from './leaderboard.js'
+import { announce } from './announce.js'
 
 export type Command = {
   data:
@@ -37,6 +38,7 @@ export const commands: Command[] = [
   pollNow,
   versus,
   leaderboard,
+  announce,
 ]
 
 export const commandByName = new Map<string, Command>(
