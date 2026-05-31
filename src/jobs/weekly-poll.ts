@@ -3,48 +3,51 @@
 //
 // Lifecycle:
 //   1. Fetch two games from /api/bot/matchup/random
-//   2. Post a 24h Discord poll in #versus with the two games
-//   3. When the poll ends, post a follow-up message with the result
-//      (the second half is wired in events/messagePollVoteAdd.ts —
+//   2. Compose a branded matchup card image (covers on background)
+//   3. Post the image as message #1 in #versus
+//   4. Post a Discord native poll as message #2, same channel
+//   5. When the poll ends, post a follow-up message with the result
+//      (the third half is wired in events/messagePollVoteAdd.ts —
 //      Discord doesn't emit a clean "ended" event, so we watch
 //      vote events and check `poll.resultsFinalized`).
+//
+// Why two messages: Discord's poll API does not allow attaching
+// images to a message that also contains a poll. The image and the
+// poll have to be separate posts. They stack in chat and read as
+// one block visually.
 
 import {
   Client,
   PollLayoutType,
   ChannelType,
+  AttachmentBuilder,
   type Message,
   type TextChannel,
 } from 'discord.js'
 import { env } from '../env.js'
 import { api, PlaychartApiError, type GameRef } from '../lib/api.js'
+import { composeVersusImage } from '../lib/compose-versus-image.js'
 import { log } from '../lib/log.js'
 
-// In-memory guard against double-firing. Stores the timestamp of
-// the most recent poll post. Loses state on bot restart — but a
-// restart in the cron firing window is unlikely enough that we
-// don't need persistent storage for V1.
 let lastPostedAt: number | null = null
 const MIN_GAP_MS = 12 * 60 * 60 * 1000 // 12 hours
 
-const POLL_DURATION_HOURS = 96
+const POLL_DURATION_HOURS = 96 // 4 days
 
 /**
  * Run the weekly poll. Called by node-cron on schedule, or by
- * /poll-now on demand. Returns the posted message on success,
- * null if skipped (e.g. recent post already exists).
+ * /poll-now on demand. Returns the poll message on success,
+ * null if skipped.
  */
 export async function runWeeklyPoll(
   client: Client,
   opts: { force?: boolean } = {},
 ): Promise<Message | null> {
-  // Idempotency guard.
   if (!opts.force && lastPostedAt && Date.now() - lastPostedAt < MIN_GAP_MS) {
     log.warn('weekly poll skipped — last post was less than 12h ago')
     return null
   }
 
-  // Get the channel.
   const channel = await client.channels.fetch(env.discordVersusChannelId)
   if (!channel || channel.type !== ChannelType.GuildText) {
     log.error(
@@ -54,7 +57,6 @@ export async function runWeeklyPoll(
   }
   const textChannel = channel as TextChannel
 
-  // Get the matchup.
   let matchup
   try {
     matchup = await api.randomMatchup()
@@ -67,10 +69,35 @@ export async function runWeeklyPoll(
     return null
   }
 
-  // Compose intro message + poll.
-  const intro = composeIntro(matchup.gameA, matchup.gameB)
+  // ─── Step 1: compose and post the image ───
+  let imageBuffer: Buffer
+  try {
+    imageBuffer = await composeVersusImage({
+      coverAUrl: matchup.gameA.coverUrl ?? null,
+      coverBUrl: matchup.gameB.coverUrl ?? null,
+    })
+  } catch (err) {
+    log.error('weekly poll — image composition failed', err)
+    // Continue without the image rather than abort — better to post
+    // a plain poll than nothing.
+    imageBuffer = Buffer.alloc(0)
+  }
+
+  if (imageBuffer.length > 0) {
+    try {
+      const attachment = new AttachmentBuilder(imageBuffer, {
+        name: 'matchup.png',
+      })
+      await textChannel.send({ files: [attachment] })
+    } catch (err) {
+      log.error('weekly poll — image post failed', err)
+      // Continue to the poll regardless.
+    }
+  }
+
+  // ─── Step 2: post the poll ───
   const posted = await textChannel.send({
-    content: intro,
+    content: composeIntro(matchup.gameA, matchup.gameB),
     poll: {
       question: { text: pollQuestion(matchup.gameA, matchup.gameB) },
       answers: [
@@ -96,16 +123,13 @@ export async function runWeeklyPoll(
 
 function composeIntro(a: GameRef, b: GameRef): string {
   return [
-    `// MATCHUP //`,
-    ``,
     `**${a.name}** vs **${b.name}**`,
     ``,
-    `Two games. One vote. Defend your choice in the replies.`,
+    `Four days. One vote each. Defend in the replies.`,
   ].join('\n')
 }
 
 function pollQuestion(a: GameRef, b: GameRef): string {
-  // Discord poll question max is 300 chars; we'll never exceed.
   return `${a.name} or ${b.name}?`
 }
 
@@ -113,16 +137,9 @@ function pollQuestion(a: GameRef, b: GameRef): string {
 // Result follow-up
 // ────────────────────────────────────────────────────────────
 
-/**
- * Called by the poll-event handler when a poll's results are
- * finalized. Posts a follow-up announcing the result.
- */
 export async function postPollResult(message: Message): Promise<void> {
   if (!message.poll) return
 
-  // The poll result follow-up posts in the same channel as the
-  // original. Narrow the channel type so .send() is callable —
-  // Discord's union includes a few channel types that don't.
   const channel = message.channel
   if (!channel.isSendable()) {
     log.warn(`poll result — channel ${channel.id} is not sendable`)
@@ -130,10 +147,7 @@ export async function postPollResult(message: Message): Promise<void> {
   }
 
   const answers = [...message.poll.answers.values()]
-  if (answers.length !== 2) {
-    // Not one of our matchup polls — skip.
-    return
-  }
+  if (answers.length !== 2) return
 
   const totalVotes = answers.reduce((s, a) => s + a.voteCount, 0)
   if (totalVotes === 0) {
@@ -146,7 +160,6 @@ export async function postPollResult(message: Message): Promise<void> {
     return
   }
 
-  // Sort by vote count desc.
   const sorted = [...answers].sort((a, b) => b.voteCount - a.voteCount)
   const winner = sorted[0]
   const loser = sorted[1]
