@@ -12,6 +12,7 @@
     "postinstall": "npm run build",
     "start": "node dist/index.js",
     "register": "tsx scripts/register-commands.ts",
+    "buffer-channels": "tsx scripts/buffer-channels.ts",
     "lint": "tsc --noEmit"
   },
   "engines": {
@@ -19,6 +20,7 @@
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.55",
+    "cron-parser": "^5.0.4",
     "discord.js": "^14.16.3",
     "dotenv": "^16.4.5",
     "node-cron": "^3.0.3"
