@@ -9,6 +9,7 @@ import type { Interaction } from 'discord.js'
 import { MessageFlags } from 'discord.js'
 import { commandByName } from '../commands/index.js'
 import { PlaychartApiError } from '../lib/api.js'
+import { recordCommand } from '../lib/command-stats.js'
 import { log } from '../lib/log.js'
 import {
   handleAnnounceModalSubmit,
@@ -79,6 +80,8 @@ export async function onInteractionCreate(interaction: Interaction): Promise<voi
     log.warn(`unknown command: ${interaction.commandName}`)
     return
   }
+
+  recordCommand(interaction.commandName)
 
   try {
     await command.execute(interaction)
