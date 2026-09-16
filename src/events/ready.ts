@@ -5,6 +5,7 @@
 import type { Client } from 'discord.js'
 import { ActivityType } from 'discord.js'
 import { log } from '../lib/log.js'
+import { startStatsHeartbeat } from '../lib/stats-heartbeat.js'
 
 const STATUSES = [
   { text: 'Two games enter. One wins.', type: ActivityType.Watching },
@@ -25,4 +26,6 @@ export function onReady(client: Client<true>): void {
   }
   setStatus()
   setInterval(setStatus, 86_400_000)
+
+  startStatsHeartbeat(client)
 }

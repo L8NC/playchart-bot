@@ -73,6 +73,12 @@ export const env = {
 
   isTwitterEnabled: readTwitterEnabled(),
 
+  // ─── Stats heartbeat (optional) ───
+  // Hourly server count and command usage for PlayChart's admin dashboard.
+  // Without the secret the bot runs normally and skips heartbeats.
+  botStatsSecret: optional('BOT_STATS_SECRET', ''),
+  botStatsIntervalMinutes: optional('BOT_STATS_INTERVAL_MINUTES', '60'),
+
   // ─── Runtime ───
   isDev: optional('NODE_ENV', 'development') === 'development',
 } as const
