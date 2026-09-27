@@ -57,6 +57,7 @@ src/
   events/
     ready.ts            fires when gateway connects
     interactionCreate.ts  routes slash commands to handlers
+    guildMemberAdd.ts   gives LINKED_ROLE_ID to linked members on join
   jobs/                 (cron jobs — wired in Step 6)
   lib/
     api.ts              Playchart API client

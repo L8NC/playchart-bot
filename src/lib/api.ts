@@ -133,6 +133,13 @@ export const api = {
     )
   },
 
+  isLinked(discordId: string) {
+    return request<{ linked: boolean }>(
+      'GET',
+      `/users/by-discord/${discordId}/linked`,
+    )
+  },
+
   chartByUsername(username: string, limit = 5) {
     return request<ChartResponse>(
       'GET',
