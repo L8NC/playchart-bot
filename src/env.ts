@@ -36,6 +36,9 @@ export const env = {
   discordFounderRoleId: optional('DISCORD_FOUNDER_ROLE_ID', ''),
   // Role pinged when a duel opens and when it closes. Empty = no ping.
   discordDuelAlertRoleId: optional('DISCORD_DUEL_ALERT_ROLE_ID', ''),
+  // Role given on join to members with a linked PlayChart account.
+  // Empty = skip. Only applied in DISCORD_GUILD_ID.
+  linkedRoleId: optional('LINKED_ROLE_ID', ''),
 
   // ─── Playchart API ───
   playchartApiBase: required('PLAYCHART_API_BASE'),

@@ -7,13 +7,15 @@ import { env } from './env.js'
 import { log } from './lib/log.js'
 import { onReady } from './events/ready.js'
 import { onInteractionCreate } from './events/interactionCreate.js'
+import { onGuildMemberAdd } from './events/guildMemberAdd.js'
 import { runWeeklyPoll } from './jobs/weekly-poll.js'
 import { resumePolls } from './jobs/poll-close.js'
 
 const client = new Client({
-  // Guilds only. Poll close is timer-driven (jobs/poll-close.ts),
-  // so no poll-vote events are needed.
-  intents: [GatewayIntentBits.Guilds],
+  // Poll close is timer-driven (jobs/poll-close.ts), so no poll-vote
+  // events are needed. GuildMembers (privileged) drives the linked
+  // role on join; it must also be enabled in the Developer Portal.
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
   // Nothing pings unless a send opts in (see lib/duel-alert.ts).
   allowedMentions: { parse: [] },
 })
@@ -43,6 +45,9 @@ client.once(Events.ClientReady, (c) => {
 })
 
 client.on(Events.InteractionCreate, onInteractionCreate)
+client.on(Events.GuildMemberAdd, (member) => {
+  onGuildMemberAdd(member).catch((err) => log.error('guildMemberAdd threw', err))
+})
 
 process.on('unhandledRejection', (reason) => {
   log.error('unhandledRejection', reason)
