@@ -34,12 +34,16 @@ export const pollNow = {
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral })
     try {
-      const posted = await runWeeklyPoll(interaction.client, { force: true })
-      if (!posted) {
+      const result = await runWeeklyPoll(interaction.client, { force: true })
+      if (result.status === 'busy') {
+        await interaction.editReply('// BUSY // a poll run is already in progress.')
+        return
+      }
+      if (result.status !== 'posted') {
         await interaction.editReply('// FAILED // see logs.')
         return
       }
-      await interaction.editReply(`// POSTED // message ${posted.id}`)
+      await interaction.editReply(`// POSTED // message ${result.message.id}`)
     } catch (err) {
       log.error('/poll-now threw', err)
       await interaction.editReply('// ERROR // something broke. See logs.')
