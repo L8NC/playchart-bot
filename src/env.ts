@@ -2,11 +2,6 @@
 // the process exits immediately with a clear message. Deliberate —
 // config errors should be obvious at boot, not 30 seconds in
 // when some command hits an undefined.
-//
-// Twitter integration (Buffer + Cloudinary) is OPT-IN. The bot will
-// boot fine without those vars set; the Sunday cron will just skip
-// the tweet step. This means we can ship the Discord bot without
-// blocking on Twitter setup, and Twitter is a separate concern.
 
 import 'dotenv/config'
 
@@ -24,22 +19,6 @@ function optional(key: string, fallback: string): string {
   return value && value.trim() !== '' ? value : fallback
 }
 
-// True only if ALL the Twitter integration vars are populated.
-// One bad var = whole feature disabled, fail-closed.
-function readTwitterEnabled(): boolean {
-  const keys = [
-    'BUFFER_API_TOKEN',
-    'BUFFER_TWITTER_CHANNEL_ID',
-    'CLOUDINARY_CLOUD_NAME',
-    'CLOUDINARY_API_KEY',
-    'CLOUDINARY_API_SECRET',
-  ]
-  return keys.every((k) => {
-    const v = process.env[k]
-    return v && v.trim() !== ''
-  })
-}
-
 function readPollDurationHours(): number {
   const parsed = Number.parseInt(optional('WEEKLY_POLL_DURATION_HOURS', '96'), 10)
   if (!Number.isFinite(parsed)) return 96
@@ -52,7 +31,9 @@ export const env = {
   discordApplicationId: required('DISCORD_APPLICATION_ID'),
   discordGuildId: optional('DISCORD_GUILD_ID', ''),
   discordVersusChannelId: required('DISCORD_VERSUS_CHANNEL_ID'),
-  discordAdminUserId: optional('DISCORD_ADMIN_USER_ID', ''),
+  // Role allowed to run admin commands (/poll-now, /announce).
+  // Empty = those commands stay locked.
+  discordFounderRoleId: optional('DISCORD_FOUNDER_ROLE_ID', ''),
   // Role pinged when a duel opens and when it closes. Empty = no ping.
   discordDuelAlertRoleId: optional('DISCORD_DUEL_ALERT_ROLE_ID', ''),
 
@@ -66,23 +47,6 @@ export const env = {
   // How long the poll stays open. Default 96 (4 days). Set to 1 to
   // test the close/result flow in a test channel. Discord caps at 768.
   weeklyPollDurationHours: readPollDurationHours(),
-
-  // ─── Scheduling — Tweet ───
-  // When Buffer should publish the tweet. Default: Monday 08:00 in
-  // the same TZ as the poll. This is the *scheduled publish time*,
-  // not when the bot calls Buffer — the bot calls Buffer immediately
-  // when the Discord poll fires, and Buffer holds the post until this.
-  tweetScheduleCron: optional('TWEET_SCHEDULE_CRON', '0 8 * * 1'),
-  tweetScheduleTz: optional('TWEET_SCHEDULE_TZ', 'America/New_York'),
-
-  // ─── Twitter integration (optional) ───
-  bufferApiToken: optional('BUFFER_API_TOKEN', ''),
-  bufferTwitterChannelId: optional('BUFFER_TWITTER_CHANNEL_ID', ''),
-  cloudinaryCloudName: optional('CLOUDINARY_CLOUD_NAME', ''),
-  cloudinaryApiKey: optional('CLOUDINARY_API_KEY', ''),
-  cloudinaryApiSecret: optional('CLOUDINARY_API_SECRET', ''),
-
-  isTwitterEnabled: readTwitterEnabled(),
 
   // ─── Stats heartbeat (optional) ───
   // Hourly server count and command usage for PlayChart's admin dashboard.

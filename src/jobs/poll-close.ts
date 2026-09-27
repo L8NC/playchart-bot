@@ -11,7 +11,9 @@
 //
 // The result is posted as a reply to the poll. "Already announced"
 // means a bot message in the channel references that poll, so the
-// check reads from Discord and survives restarts.
+// check reads from Discord and survives restarts. When both answers
+// resolve to PlayChart games, the result also shows how PlayChart
+// users voted the same matchup.
 
 import type {
   Client,
@@ -22,6 +24,7 @@ import type {
 } from 'discord.js'
 import { ChannelType } from 'discord.js'
 import { env } from '../env.js'
+import { api, type GameRef } from '../lib/api.js'
 import { duelAlertMentions, withDuelAlert } from '../lib/duel-alert.js'
 import { log } from '../lib/log.js'
 
@@ -230,8 +233,9 @@ async function sendPollResult(message: Message, ping: boolean): Promise<void> {
   const winPct = Math.round((winner.voteCount / totalVotes) * 100)
   const losePct = Math.round((loser.voteCount / totalVotes) * 100)
 
+  const isTie = winner.voteCount === loser.voteCount
   let body: string
-  if (winner.voteCount === loser.voteCount) {
+  if (isTie) {
     body = [
       `// MATCHUP CLOSED // dead heat.`,
       ``,
@@ -254,8 +258,73 @@ async function sendPollResult(message: Message, ping: boolean): Promise<void> {
     ].join('\n')
   }
 
+  const comparison = await playchartComparison(
+    winner.text ?? '',
+    loser.text ?? '',
+    isTie,
+  )
+  if (comparison) body += `\n\n${comparison}`
+
   await send(body)
   log.info(
     `poll result posted // ${winner.text} ${winPct}% vs ${loser.text} ${losePct}% // ${totalVotes} votes`,
   )
+}
+
+// ────────────────────────────────────────────────────────────
+// PlayChart comparison
+// ────────────────────────────────────────────────────────────
+
+/**
+ * How PlayChart users voted the same two games, for the result post.
+ * Null when either answer doesn't resolve to a game by exact name, or
+ * on any API error, so the result posts without it.
+ */
+async function playchartComparison(
+  winnerName: string,
+  loserName: string,
+  serverTie: boolean,
+): Promise<string | null> {
+  try {
+    const [winnerGame, loserGame] = await Promise.all([
+      findGameByName(winnerName),
+      findGameByName(loserName),
+    ])
+    if (!winnerGame || !loserGame) return null
+
+    const data = await api.versus(winnerGame.gameId, loserGame.gameId)
+    if (data.totalMatchups === 0) {
+      return `No PlayChart history for this matchup yet.`
+    }
+
+    const winnerPct = Math.round(data.gameAWinRate * 100)
+    const loserPct = 100 - winnerPct
+    const lines = [
+      `PlayChart users: **${winnerGame.name}** ${winnerPct}% · **${loserGame.name}** ${loserPct}% (${data.totalMatchups} matchups)`,
+    ]
+    // A tie on either side has no winner to agree with.
+    if (!serverTie && data.gameAWins !== data.gameBWins) {
+      lines.push(
+        data.gameAWins > data.gameBWins
+          ? `Server agrees with PlayChart.`
+          : `Server went against PlayChart.`,
+      )
+    }
+    return lines.join('\n')
+  } catch (err) {
+    log.warn(
+      `poll result — playchart comparison skipped: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
+    return null
+  }
+}
+
+// Exact, case-insensitive name match among the top 5 search results.
+async function findGameByName(name: string): Promise<GameRef | null> {
+  const target = name.trim().toLowerCase()
+  if (!target) return null
+  const { results } = await api.searchGames(name, 5)
+  return results.find((g) => g.name.toLowerCase() === target) ?? null
 }
