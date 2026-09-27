@@ -10,6 +10,10 @@ import { MessageFlags } from 'discord.js'
 import { commandByName } from '../commands/index.js'
 import { PlaychartApiError } from '../lib/api.js'
 import { recordCommand } from '../lib/command-stats.js'
+import {
+  DUEL_ALERTS_TOGGLE_ID,
+  handleDuelAlertsToggle,
+} from '../lib/duel-alert.js'
 import { log } from '../lib/log.js'
 import {
   handleAnnounceModalSubmit,
@@ -59,6 +63,8 @@ export async function onInteractionCreate(interaction: Interaction): Promise<voi
         interaction.customId.startsWith('announce_discard:')
       ) {
         await handleAnnounceButton(interaction)
+      } else if (interaction.customId === DUEL_ALERTS_TOGGLE_ID) {
+        await handleDuelAlertsToggle(interaction)
       }
     } catch (err) {
       log.error('button click threw', err)

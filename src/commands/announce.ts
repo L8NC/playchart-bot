@@ -34,15 +34,15 @@ import {
   type NewsChannel,
 } from 'discord.js'
 import { log } from '../lib/log.js'
+import {
+  FOUNDER_NOT_CONFIGURED,
+  isFounder,
+  isFounderConfigured,
+} from '../lib/permissions.js'
 
 // ACID accent. Distinct from the amber used elsewhere so announcements
 // look visually different from data commands like /chart.
 const ACCENT_ACID = 0xd4ff3a
-
-// Founder role name. If you rename the role in Discord, update this string.
-// Could be made into an env var later; for now hardcoded since this command
-// won't ever be used in another server.
-const FOUNDER_ROLE_NAME = 'Founder'
 
 // Maximum lifetime of a pending preview in the in-memory cache. After
 // this, the buttons stop working and the user has to re-compose. Long
@@ -99,19 +99,25 @@ export const announce = {
         .setDescription('Optional image to embed.')
         .setRequired(false),
     )
-    // Role-gate the command via Discord's built-in permission system.
-    // setDefaultMemberPermissions(0) hides it from everyone by default,
-    // then the role gate in execute() does the actual check. This makes
-    // it disappear from autocomplete for non-founders, which is nicer
+    // Hide the command from members without Manage Server, then the
+    // founder role check in execute() does the actual gating. This makes
+    // it disappear from autocomplete for most members, which is nicer
     // than "command shows up, errors when used."
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     ensureCleanup()
 
-    // Role check. setDefaultMemberPermissions handles most of this, but
-    // we double-check by name in case the role hierarchy isn't aligned.
-    if (!hasFounderRole(interaction)) {
+    // Role check. setDefaultMemberPermissions only hides the command;
+    // the founder role ID (DISCORD_FOUNDER_ROLE_ID) is the real gate.
+    if (!isFounderConfigured()) {
+      await interaction.reply({
+        content: FOUNDER_NOT_CONFIGURED,
+        flags: MessageFlags.Ephemeral,
+      })
+      return
+    }
+    if (!isFounder(interaction)) {
       await interaction.reply({
         content: '// LOCKED // this command is founder-only.',
         flags: MessageFlags.Ephemeral,
@@ -291,7 +297,15 @@ export async function handleAnnounceButton(
   if (action === 'announce_post') {
     // Re-check founder role at click time. If they lost the role
     // between compose and post, deny.
-    if (!hasFounderRole(interaction)) {
+    if (!isFounderConfigured()) {
+      await interaction.update({
+        content: FOUNDER_NOT_CONFIGURED,
+        embeds: [],
+        components: [],
+      })
+      return
+    }
+    if (!isFounder(interaction)) {
       await interaction.update({
         content: '// LOCKED // founder role required to post.',
         embeds: [],
@@ -374,17 +388,6 @@ function buildAnnouncementEmbed(opts: {
   }
 
   return embed
-}
-
-function hasFounderRole(interaction: {
-  member: unknown
-}): boolean {
-  const member = interaction.member as { roles?: { cache?: Map<string, { name: string }> } }
-  if (!member?.roles?.cache) return false
-  for (const role of member.roles.cache.values()) {
-    if (role.name === FOUNDER_ROLE_NAME) return true
-  }
-  return false
 }
 
 function isImageAttachment(att: { contentType?: string | null; name?: string | null }): boolean {

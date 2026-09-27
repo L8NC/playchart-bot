@@ -4,8 +4,10 @@
 // Lifecycle:
 //   1. Fetch two games from /api/bot/matchup/random
 //   2. Compose a branded matchup card image (covers on background)
-//   3. Post the image + intro copy as message #1 in #versus
-//   4. Post a Discord native poll as message #2, same channel
+//   3. Post the image + intro copy as message #1 in #versus, with a
+//      "Duel alerts" role toggle button when the alert role is set
+//   4. Post a Discord native poll as message #2, same channel, and
+//      open a discussion thread on it
 //   5. When the poll ends, reply to it with the result. Discord sends
 //      no event when a poll expires, so jobs/poll-close.ts sets a timer
 //      for the expiry and re-arms open polls on boot.
@@ -28,18 +30,24 @@ import {
   PollLayoutType,
   ChannelType,
   AttachmentBuilder,
+  ThreadAutoArchiveDuration,
   type Message,
   type TextChannel,
 } from 'discord.js'
 import { env } from '../env.js'
 import { api, PlaychartApiError, type GameRef } from '../lib/api.js'
 import { composeVersusImage } from '../lib/compose-versus-image.js'
-import { duelAlertMentions, withDuelAlert } from '../lib/duel-alert.js'
+import {
+  duelAlertComponents,
+  duelAlertMentions,
+  withDuelAlert,
+} from '../lib/duel-alert.js'
 import { log } from '../lib/log.js'
 import { schedulePollClose } from './poll-close.js'
 
 const MIN_GAP_MS = 12 * 60 * 60 * 1000 // 12 hours
 const RECENT_MESSAGE_SCAN = 20
+const THREAD_NAME_MAX = 100
 
 let inFlight = false
 
@@ -137,6 +145,7 @@ async function postWeeklyPoll(
       await textChannel.send({
         content: intro,
         files: [attachment],
+        components: duelAlertComponents(),
         allowedMentions: duelAlertMentions(),
         nonce: `wp${runId}i`,
         enforceNonce: true,
@@ -171,7 +180,30 @@ async function postWeeklyPoll(
     `weekly poll posted // ${matchup.gameA.name} vs ${matchup.gameB.name} // msg ${posted.id}`,
   )
   schedulePollClose(posted)
+  await startDiscussionThread(posted, matchup.gameA, matchup.gameB)
   return posted
+}
+
+// Discussion thread on the poll. Stays open after the poll closes and
+// archives on Discord's 7 day inactivity timer. Failure is non-fatal:
+// the poll is already up.
+async function startDiscussionThread(
+  pollMessage: Message,
+  a: GameRef,
+  b: GameRef,
+): Promise<void> {
+  try {
+    await pollMessage.startThread({
+      name: `${a.name} vs ${b.name}`.slice(0, THREAD_NAME_MAX),
+      autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
+    })
+  } catch (err) {
+    log.warn(
+      `weekly poll — thread creation failed on msg ${pollMessage.id}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
+  }
 }
 
 async function hasRecentBotPoll(
@@ -200,7 +232,7 @@ function composeIntro(a: GameRef, b: GameRef): string {
   return [
     `**${a.name}** vs **${b.name}**`,
     ``,
-    `Four days. One vote each. Defend in the replies.`,
+    `Four days. One vote each. Defend in the thread.`,
   ].join('\n')
 }
 
