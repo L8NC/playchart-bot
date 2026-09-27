@@ -40,6 +40,12 @@ function readTwitterEnabled(): boolean {
   })
 }
 
+function readPollDurationHours(): number {
+  const parsed = Number.parseInt(optional('WEEKLY_POLL_DURATION_HOURS', '96'), 10)
+  if (!Number.isFinite(parsed)) return 96
+  return Math.min(768, Math.max(1, parsed))
+}
+
 export const env = {
   // ─── Discord ───
   discordBotToken: required('DISCORD_BOT_TOKEN'),
@@ -47,6 +53,8 @@ export const env = {
   discordGuildId: optional('DISCORD_GUILD_ID', ''),
   discordVersusChannelId: required('DISCORD_VERSUS_CHANNEL_ID'),
   discordAdminUserId: optional('DISCORD_ADMIN_USER_ID', ''),
+  // Role pinged when a duel opens and when it closes. Empty = no ping.
+  discordDuelAlertRoleId: optional('DISCORD_DUEL_ALERT_ROLE_ID', ''),
 
   // ─── Playchart API ───
   playchartApiBase: required('PLAYCHART_API_BASE'),
@@ -55,6 +63,9 @@ export const env = {
   // ─── Scheduling — Discord poll ───
   weeklyPollCron: optional('WEEKLY_POLL_CRON', '0 18 * * 0'),
   weeklyPollTz: optional('WEEKLY_POLL_TZ', 'America/New_York'),
+  // How long the poll stays open. Default 96 (4 days). Set to 1 to
+  // test the close/result flow in a test channel. Discord caps at 768.
+  weeklyPollDurationHours: readPollDurationHours(),
 
   // ─── Scheduling — Tweet ───
   // When Buffer should publish the tweet. Default: Monday 08:00 in

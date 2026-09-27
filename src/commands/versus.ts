@@ -7,6 +7,7 @@
 import {
   SlashCommandBuilder,
   EmbedBuilder,
+  MessageFlags,
   type ChatInputCommandInteraction,
   type AutocompleteInteraction,
 } from 'discord.js'
@@ -54,7 +55,7 @@ export const versus = {
           `Type the game name and select from the dropdown — `,
           `freeform text won't resolve to a game.`,
         ].join('\n'),
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       })
       return
     }
@@ -62,7 +63,7 @@ export const versus = {
     if (aId === bId) {
       await interaction.reply({
         content: `// SAME GAME // a game can't fight itself.`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       })
       return
     }

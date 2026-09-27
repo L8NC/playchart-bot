@@ -7,20 +7,23 @@ import { env } from './env.js'
 import { log } from './lib/log.js'
 import { onReady } from './events/ready.js'
 import { onInteractionCreate } from './events/interactionCreate.js'
-import { registerPollEndedListener } from './events/messagePollVoteAdd.js'
 import { runWeeklyPoll } from './jobs/weekly-poll.js'
+import { resumePolls } from './jobs/poll-close.js'
 
 const client = new Client({
-  // Guilds + GuildMessagePolls. Polls is needed to receive
-  // poll-vote events so we can post the result follow-up.
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessagePolls,
-  ],
+  // Guilds only. Poll close is timer-driven (jobs/poll-close.ts),
+  // so no poll-vote events are needed.
+  intents: [GatewayIntentBits.Guilds],
+  // Nothing pings unless a send opts in (see lib/duel-alert.ts).
+  allowedMentions: { parse: [] },
 })
 
 client.once(Events.ClientReady, (c) => {
   onReady(c)
+
+  // Post results for polls that ended while we were down, and
+  // re-arm close timers for polls still open.
+  resumePolls(c).catch((err) => log.error('poll resume threw', err))
 
   // Schedule the weekly poll. node-cron uses the timezone option
   // to interpret the cron string. Default: Sunday 18:00 in the
@@ -40,7 +43,6 @@ client.once(Events.ClientReady, (c) => {
 })
 
 client.on(Events.InteractionCreate, onInteractionCreate)
-registerPollEndedListener(client)
 
 process.on('unhandledRejection', (reason) => {
   log.error('unhandledRejection', reason)

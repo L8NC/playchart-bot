@@ -17,7 +17,7 @@ const STATUSES = [
 export function onReady(client: Client<true>): void {
   log.info(`READY // logged in as ${client.user.tag} // ${client.guilds.cache.size} guild(s)`)
 
-  // Set status immediately on boot, then rotate every 30 seconds.
+  // Set status immediately on boot, then rotate every 5 minutes.
   let i = 0
   const setStatus = () => {
     const s = STATUSES[i % STATUSES.length]
@@ -25,7 +25,7 @@ export function onReady(client: Client<true>): void {
     i++
   }
   setStatus()
-  setInterval(setStatus, 86_400_000)
+  setInterval(setStatus, 5 * 60 * 1000)
 
   startStatsHeartbeat(client)
 }
